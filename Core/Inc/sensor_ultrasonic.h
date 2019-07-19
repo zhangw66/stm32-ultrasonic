@@ -41,6 +41,10 @@ typedef enum ultrasonic_ranging_state_machine
     HC_SR04_STATE_END,
     ULTRA_STATE_UNKNOWN,
 } ultrasonic_ranging_state_machine_t;
+typedef struct hc_sr04_timer {
+    uint64_t timer_count_b;
+    uint64_t timer_count_e;
+} hc_sr04_timer_t;
 typedef struct hc_sr04_resource
 {
     GPIO_TypeDef *trigger_gpio_port;
@@ -48,6 +52,7 @@ typedef struct hc_sr04_resource
     GPIO_TypeDef *echo_gpio_port;
     uint16_t echo_gpio_pin;
     struct hc_sr04_irq_desc irq_desc;
+    struct hc_sr04_timer timer;
 } hc_sr04_resource_t;
 
 typedef struct ultrasonic {

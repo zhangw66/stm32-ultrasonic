@@ -1,8 +1,9 @@
 #include <sensor_ultrasonic.h>
 #include <stdio.h>
+#include <tim.h>
 //workaround
 #define pr_err printf
-#define sr04_delay(time)
+#define sr04_delay delay_us_poll_systick
 #define HC_SR04_MAX_RANGING_FREQ (40U)
 #define VELOCITY (340.0f) //velocity:340m/s
 //hc_sr04_ranging_state_machine_t hc_sr04_ranging_state_machine;
@@ -88,6 +89,7 @@ static inline struct ultrasonic *hc_sr04_get_dev_by_pin(uint16_t GPIO_Pin)
     return pultra;
 }
 
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     struct ultrasonic *pultra = NULL;
@@ -106,23 +108,30 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
                 //clear echo pulse
                 pultra->echo_pulse = 0;
                 //start timer
+                res->timer.timer_count_b = get_timer_time();
                 //set ranging state
                 pultra->set_ranging_state(pultra, HC_SR04_STATE_RAISE_ECHO_END);
-            }
+            } else 
+                pr_err("%s[%d]:get error egde!\n", __func__, __LINE__);
             break;
         case HC_SR04_STATE_RAISE_ECHO_END:
             //raise echo start with a falling edge
             if (GPIO_PIN_RESET == pin_state) {
                 //stop timer
+                res->timer.timer_count_e = get_timer_time();
                 //set echo pulse
-                pultra->echo_pulse = 1;
+                pultra->echo_pulse = res->timer.timer_count_e - res->timer.timer_count_b;
                 //set ranging state
                 pultra->set_ranging_state(pultra, HC_SR04_STATE_RAISE_CALC_DIS);
-            }
+            } else
+                pr_err("%s[%d]:get error egde!\n", __func__, __LINE__);
             break;
-        default:;
+        default:
+            pr_err("%s[%d]:unexcepted irq!\n", __func__, __LINE__);
+            ;
         }
-    }
+    } else
+        pr_err("%s[%d]:Can not convert EXTI pin to ultra dev!\n", __func__, __LINE__);
 }
 
 int8_t hc_sr04_init(struct ultrasonic *ultra)
@@ -137,6 +146,8 @@ int8_t hc_sr04_init(struct ultrasonic *ultra)
     HAL_GPIO_WritePin(res->trigger_gpio_port, res->trigger_gpio_pin, 0);
     HAL_GPIO_WritePin(res->echo_gpio_port, res->echo_gpio_pin, 0);
     //init timer
+    __HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
+    HAL_TIM_Base_Start_IT(&htim3);
     //enbale echo pin irq line
     hc_sr04_bind_irq(ultra);
     //init state
@@ -148,8 +159,10 @@ int16_t hc_sr04_get_distance(struct ultrasonic *ultra)
     int16_t distance = -1; //uint:cm
     float range, fly_time;
     ultrasonic_ranging_state_machine_t state = ULTRA_STATE_UNKNOWN;
+    state = ultra->get_ranging_state(ultra);
     switch (state) {
     case HC_SR04_STATE_IDLE:
+        printf("trigger!!\n");
         hc_sr04_trigger_process(ultra->platform_data);
         ultra->set_ranging_state(ultra, HC_SR04_STATE_RAISE_ECHO_START);
         //todo: timeout check.
@@ -158,6 +171,7 @@ int16_t hc_sr04_get_distance(struct ultrasonic *ultra)
         //do nothing
         break;
     case HC_SR04_STATE_RAISE_CALC_DIS:
+        printf("calc distance!!\n");
         //caculate real distance
         fly_time = (float)ultra->echo_pulse / 1000000.0f;
         range = fly_time * VELOCITY / 2;
@@ -225,7 +239,7 @@ struct ultrasonic *ultrasonic_get_by_id(uint16_t id)
     if ((ultrasonic_table[id].id == id)
         && ultrasonic_table[id].platform_data 
         && ultrasonic_table[id].get_distance) {
-        pr_err("%s[%d]: Get ultra-%d successful!!\n", __func__, __LINE__, id);
+        //pr_err("%s[%d]: Get ultra-%d successful!!\n", __func__, __LINE__, id);
         ultra = &ultrasonic_table[id];
     } else
         pr_err("%s[%d]: ultra-%d is invalid,please setup first!!\n", __func__, __LINE__, id);

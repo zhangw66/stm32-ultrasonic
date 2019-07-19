@@ -60,17 +60,16 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 static ultrasonic_t *ultrasonic = NULL;
-    /* USER CODE END 0 */
+/* USER CODE END 0 */
 
-    /**
+/**
   * @brief  The application entry point.
   * @retval int
   */
-    int
-    main(void)
+int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	uint16_t poll_delay;
   /* USER CODE END 1 */
   
 
@@ -97,7 +96,8 @@ static ultrasonic_t *ultrasonic = NULL;
   /* USER CODE BEGIN 2 */
   ultrasonic_setup(ultra_type_hc_sr04, 1);
   ultrasonic = ultrasonic_get_by_id(0);
-  printf("ranging freq:%d\n", ultrasonic->get_ranging_freq(ultrasonic));
+  poll_delay = 1000 / ultrasonic->get_ranging_freq(ultrasonic);
+  printf("ranging freq:%d,elapsed time:%dms\n", ultrasonic->get_ranging_freq(ultrasonic), poll_delay);
   printf("ultra name:%s\n", ultrasonic->hardware_name);
   ultrasonic->init(ultrasonic);
   /* USER CODE END 2 */
@@ -107,10 +107,12 @@ static ultrasonic_t *ultrasonic = NULL;
   while (1)
   {
     /* USER CODE END WHILE */
-	  HAL_Delay(1000);
-    printf("hello\n");
-        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+
     /* USER CODE BEGIN 3 */
+    HAL_Delay(poll_delay);
+    printf("hello\n");
+    ultrasonic->get_distance(ultrasonic);
+    //HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
   }
   /* USER CODE END 3 */
 }

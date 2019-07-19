@@ -39,7 +39,8 @@ extern TIM_HandleTypeDef htim3;
 void MX_TIM3_Init(void);
 
 /* USER CODE BEGIN Prototypes */
-
+extern uint64_t get_timer_time(void);
+extern void delay_us_poll_systick(uint32_t us);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus
