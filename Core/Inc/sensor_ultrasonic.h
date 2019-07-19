@@ -21,8 +21,8 @@ typedef enum ultra_type
 typedef enum
 {
     ultra_id_1,
-    //    ultra_id_2,
-    //    ultra_id_3,
+    ultra_id_2,
+    ultra_id_3,
     ultra_max_nums,
 } ultra_id_t;
 typedef struct hc_sr04_irq_desc{

@@ -8,13 +8,24 @@
 #define VELOCITY (340.0f) //velocity:340m/s
 //hc_sr04_ranging_state_machine_t hc_sr04_ranging_state_machine;
 hc_sr04_resource_t hc_sr04_res[ultra_max_nums] = {
-    [ultra_id_1] = {
+    [ultra_id_3] = {
         .trigger_gpio_port = sr04_01_trigger_pin_GPIO_Port,
         .trigger_gpio_pin = sr04_01_trigger_pin_Pin,
         .echo_gpio_port = sr04_01_echo_pin_GPIO_Port,
         .echo_gpio_pin = sr04_01_echo_pin_Pin,
     },
-
+    [ultra_id_1] = {
+        .trigger_gpio_port = sr04_03_trigger_pin_GPIO_Port,
+        .trigger_gpio_pin = sr04_03_trigger_pin_Pin,
+        .echo_gpio_port = sr04_03_echo_pin_GPIO_Port,
+        .echo_gpio_pin = sr04_03_echo_pin_Pin,
+    },
+    [ultra_id_2] = {
+        .trigger_gpio_port = sr04_04_trigger_pin_GPIO_Port,
+        .trigger_gpio_pin = sr04_04_trigger_pin_Pin,
+        .echo_gpio_port = sr04_04_echo_pin_GPIO_Port,
+        .echo_gpio_pin = sr04_04_echo_pin_Pin,
+    },
 };
 struct ultrasonic ultrasonic_table[ultra_max_nums] = {
     [ultra_id_1] = {
@@ -83,7 +94,7 @@ static inline struct ultrasonic *hc_sr04_get_dev_by_pin(uint16_t GPIO_Pin)
         if (irq_desc->has_bound) {
             pultra = ultrasonic_get_by_id(irq_desc->ultra_id);
         } else {
-            //pr_err("%s[%d]:exti_line_num is out of range\n", __func__, __LINE__);
+            pr_err("%s[%d]:exti_line_num is out of range\n", __func__, __LINE__);
         }
     }
     return pultra;
@@ -162,7 +173,7 @@ int16_t hc_sr04_get_distance(struct ultrasonic *ultra)
     state = ultra->get_ranging_state(ultra);
     switch (state) {
     case HC_SR04_STATE_IDLE:
-        printf("trigger!!\n");
+        printf("<%d>trigger!!\n", ultra->id);
         hc_sr04_trigger_process(ultra->platform_data);
         ultra->set_ranging_state(ultra, HC_SR04_STATE_RAISE_ECHO_START);
         //todo: timeout check.
@@ -171,11 +182,11 @@ int16_t hc_sr04_get_distance(struct ultrasonic *ultra)
         //do nothing
         break;
     case HC_SR04_STATE_RAISE_CALC_DIS:
-        printf("calc distance!!\n");
+        printf("<%d>calc distance!!\n", ultra->id);
         //caculate real distance
         fly_time = (float)ultra->echo_pulse / 1000000.0f;
         range = fly_time * VELOCITY / 2;
-        printf("range:%f\n", range);
+        printf("<%d>range:%f\n", ultra->id, range);
         //Start a new round of measurement
         ultra->set_ranging_state(ultra, HC_SR04_STATE_IDLE);
         break;
