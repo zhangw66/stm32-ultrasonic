@@ -2,36 +2,17 @@
 #define __SENSOR_ULTRASONIC__
 #include <main.h>
 #include <stdbool.h>
-typedef enum ultra_type
-{
+typedef enum ultra_type {
     ultra_type_hc_sr04,
     ultra_type_nums,
 } ultra_type_t;
-#define get_ultra_type_str(id) ({ \
-    char *name; \
-    switch (id) { \
-    case ultra_type_hc_sr04: \
-        name = "hc_sr04"; \
-        break; \
-    default:name = "unkown"; \
-    } \
-    name; \
-    })
-
-typedef enum
-{
+typedef enum {
     ultra_id_1,
     ultra_id_2,
     ultra_id_3,
     ultra_max_nums,
 } ultra_id_t;
-typedef struct hc_sr04_irq_desc{
-    ultra_id_t ultra_id; //we can get struct ultrasonic according to ultra id.
-    uint8_t irq_num; //
-    bool has_bound;
-} hc_sr04_irq_desc_t;
-typedef enum ultrasonic_ranging_state_machine
-{
+typedef enum ultrasonic_ranging_state_machine {
     HC_SR04_STATE_BEGIN,
     HC_SR04_STATE_IDLE,
     HC_SR04_STATE_SEND_ULTRASOUND,
@@ -41,24 +22,10 @@ typedef enum ultrasonic_ranging_state_machine
     HC_SR04_STATE_END,
     ULTRA_STATE_UNKNOWN,
 } ultrasonic_ranging_state_machine_t;
-typedef struct hc_sr04_timer {
-    uint64_t timer_count_b;
-    uint64_t timer_count_e;
-} hc_sr04_timer_t;
-typedef struct hc_sr04_resource
-{
-    GPIO_TypeDef *trigger_gpio_port;
-    uint16_t trigger_gpio_pin;
-    GPIO_TypeDef *echo_gpio_port;
-    uint16_t echo_gpio_pin;
-    struct hc_sr04_irq_desc irq_desc;
-    struct hc_sr04_timer timer;
-} hc_sr04_resource_t;
-
 typedef struct ultrasonic {
     ultra_id_t id;
     enum ultra_type type;
-    uint16_t timeout;
+    uint32_t timeout;
     uint32_t echo_pulse; //unit:us
     volatile ultrasonic_ranging_state_machine_t ranging_state;
     const char *hardware_name;

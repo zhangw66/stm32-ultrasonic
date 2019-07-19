@@ -28,6 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <sensor_ultrasonic.h>
+#include <ultra_hc_sr04.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -95,7 +96,6 @@ int main(void)
   MX_TIM3_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(2000);
   ultrasonic_setup(ultra_type_hc_sr04, SR04_NUMS);
   for (int i = 0; i < SR04_NUMS; i++)
   {
@@ -104,7 +104,6 @@ int main(void)
     printf("ranging freq:%d,elapsed time:%dms\n", ultrasonic[i]->get_ranging_freq(ultrasonic[i]), poll_delay);
     printf("ultra name:%s\n", ultrasonic[i]->hardware_name);
     ultrasonic[i]->init(ultrasonic[i]);
-    HAL_Delay(1000);
   }
   /* USER CODE END 2 */
 
@@ -115,7 +114,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    HAL_Delay(1000);
+    HAL_Delay(poll_delay);
     //printf("hello\n");
     for (int i = 0; i < SR04_NUMS; i++)
       ultrasonic[i]->get_distance(ultrasonic[i]);
