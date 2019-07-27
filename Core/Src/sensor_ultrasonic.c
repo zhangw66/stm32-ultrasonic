@@ -1,8 +1,9 @@
 #include <sensor_ultrasonic.h>
 #include <ultra_hc_sr04.h>
 #include <stdio.h>
-//workaround
 #define pr_err printf
+#define pr_info printf
+#define pr_debug printf
 #define get_ultra_type_str(id) ({ \
     char *name;                   \
     switch (id)                   \
@@ -16,6 +17,7 @@
     name;                         \
 })
 struct ultrasonic ultrasonic_table[ultra_max_nums];
+static ultrasonic_t *ultrasonic[ultra_max_nums];
 int8_t ultrasonic_install_hook(struct ultrasonic *ultra,
                                ultrasonic_init_t init,
                                ultrasonic_get_distance_t get_distance,
@@ -60,9 +62,9 @@ struct ultrasonic *ultrasonic_get_by_id(uint16_t id)
         return NULL;
     }
     if ((ultrasonic_table[id].id == id)
-        && ultrasonic_table[id].platform_data 
+        && ultrasonic_table[id].platform_data
         && ultrasonic_table[id].get_distance) {
-        //printf("%s[%d]: Get ultra-%d successful!!\n", __func__, __LINE__, id);
+        //pr_info("%s[%d]: Get ultra-%d successful!!\n", __func__, __LINE__, id);
         ultra = &ultrasonic_table[id];
     } else
         pr_err("%s[%d]: ultra-%d is invalid,please setup first!!\n", __func__, __LINE__, id);
@@ -89,7 +91,7 @@ ultrasonic_ranging_state_machine_t ultra_get_ranging_state(struct ultrasonic *ul
 int8_t ultra_set_ranging_state(struct ultrasonic *ultra, ultrasonic_ranging_state_machine_t state)
 {
     ultra->ranging_state = state;
-    return 0; 
+    return 0;
 }
 
 int8_t ultrasonic_config_state_machine(struct ultrasonic *ultra, set_ranging_state_t set_func, get_ranging_state_t get_func)
@@ -107,25 +109,35 @@ int8_t ultrasonic_config_state_machine(struct ultrasonic *ultra, set_ranging_sta
 
 int8_t ultrasonic_setup(ultra_type_t type, uint16_t ultra_dev_nums)
 {
-    uint16_t ultra_nums;
+    uint16_t ultra_nums, poll_delay;
+	int i = 0;
     if (type < 0 || type >= ultra_type_nums) {
         pr_err("%s[%d]: ultra type<%u> is unknown\n", __func__, __LINE__, type);
         return -1;
     }
     //TODO:get how many ultrasonic we have in meissa board.
     ultra_nums = ultra_dev_nums;
-    printf("%s:we have %d %s ultrasonic\n", __func__, ultra_nums, get_ultra_type_str(type));
+    pr_info("%s:we have %d %s ultrasonic\n", __func__, ultra_nums, get_ultra_type_str(type));
     //Do corresponding initialization work according to different sensor types
     switch (type) {
     case ultra_type_hc_sr04:
-        for (int i = 0; i < ultra_nums; i++) {
+        for (i = 0; i < ultra_nums; i++) {
             ultrasonic_set_id(&ultrasonic_table[i], i, get_ultra_type_str(type));
             ultrasonic_config_state_machine(&ultrasonic_table[i], NULL, NULL);
             ultrasonic_install_hook(&ultrasonic_table[i], hc_sr04_init, hc_sr04_get_distance, hc_sr04_get_ranging_freq);
             ultrasonic_set_platdata(&ultrasonic_table[i], &hc_sr04_res[i]);
         }
+		for (i = 0; i < ultra_nums; i++) {
+		    ultrasonic[i] = ultrasonic_get_by_id(i);
+		    poll_delay = 1000 / ultrasonic[i]->get_ranging_freq(ultrasonic[i]);
+		    pr_info("ranging freq:%d,elapsed time:%dms\n", ultrasonic[i]->get_ranging_freq(ultrasonic[i]), poll_delay);
+		    pr_info("ultra name:%s\n", ultrasonic[i]->hardware_name);
+		    ultrasonic[i]->init(ultrasonic[i]);
+ 		}
         break;
     default:;
     }
     return 0;
 }
+
+

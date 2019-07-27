@@ -1,6 +1,10 @@
 #ifndef __ULTRA_HC_SR04_H__
 #define __ULTRA_HC_SR04_H__
 #include <sensor_ultrasonic.h>
+#define MEISSA_HC_SR04_NUMS 3
+
+
+
 typedef struct hc_sr04_timer {
     uint64_t timer_count_b;     //record the time when the rising edge is triggered
     uint64_t timer_count_e;     //record the time when the falling edge is triggered
@@ -25,8 +29,7 @@ typedef struct hc_sr04_resource {
     struct hc_sr04_timer timer;
 } hc_sr04_resource_t;
 extern int8_t hc_sr04_init(struct ultrasonic *ultra);
-extern int16_t hc_sr04_get_distance(struct ultrasonic *ultra);
+extern int32_t hc_sr04_get_distance(struct ultrasonic *ultra);
 extern uint16_t hc_sr04_get_ranging_freq(struct ultrasonic *ultra);
 extern hc_sr04_resource_t hc_sr04_res[ultra_max_nums];
-extern void hc_sr04_irq(uint16_t GPIO_Pin);
 #endif

@@ -1,12 +1,16 @@
 #include <ultra_hc_sr04.h>
-#include <tim.h>
-#include <stdio.h>
+#include<tim.h>
+#include<stdio.h>
 #define pr_err printf
+#define pr_info printf
+#define pr_debug printf
 #define sr04_delay delay_us_poll_systick
 #define HC_SR04_MAX_RANGING_FREQ (40U)  //unit:HZ
 #define VELOCITY (340.0f) //velocity:340m/s
 #define STM32F4_EXTI_NUMS (16u)
 #define HC_SR04_RANGING_TIMEOUT (60u)   //unit:ms
+#define HC_SR04_RANGING_PERIOD (50u)   //unit:ms
+
 #define gpio_pin_to_exti_line(pin) ({ \
     uint16_t pin_tmp = pin;           \
     uint16_t exti_line_num = 0;       \
@@ -17,24 +21,26 @@
     } while (pin_tmp);                \
     --exti_line_num;                  \
 })
-hc_sr04_resource_t hc_sr04_res[ultra_max_nums] = {
+                                            hc_sr04_resource_t hc_sr04_res[ultra_max_nums] = {
     [ultra_id_1] = {
         .trigger_gpio_port = sr04_01_trigger_pin_GPIO_Port,
         .trigger_gpio_pin = sr04_01_trigger_pin_Pin,
         .echo_gpio_port = sr04_01_echo_pin_GPIO_Port,
         .echo_gpio_pin = sr04_01_echo_pin_Pin,
     },
-    [ultra_id_2] = {
+    [ultra_id_2
+] = {
+        .trigger_gpio_port = sr04_02_trigger_pin_GPIO_Port,
+        .trigger_gpio_pin = sr04_02_trigger_pin_Pin,
+        .echo_gpio_port = sr04_02_echo_pin_GPIO_Port,
+        .echo_gpio_pin = sr04_02_echo_pin_Pin,
+    },
+    [ultra_id_3
+] = {
         .trigger_gpio_port = sr04_03_trigger_pin_GPIO_Port,
         .trigger_gpio_pin = sr04_03_trigger_pin_Pin,
         .echo_gpio_port = sr04_03_echo_pin_GPIO_Port,
         .echo_gpio_pin = sr04_03_echo_pin_Pin,
-    },
-    [ultra_id_3] = {
-        .trigger_gpio_port = sr04_04_trigger_pin_GPIO_Port,
-        .trigger_gpio_pin = sr04_04_trigger_pin_Pin,
-        .echo_gpio_port = sr04_04_echo_pin_GPIO_Port,
-        .echo_gpio_pin = sr04_04_echo_pin_Pin,
     },
 };
 struct hc_sr04_irq_desc *hc_sr04_irq_bind_table[STM32F4_EXTI_NUMS];
@@ -54,7 +60,7 @@ static int8_t hc_sr04_bind_irq(struct ultrasonic *ultra)
         res->irq_desc.ultra_id = pultra->id;
         res->irq_desc.has_bound = true;
         hc_sr04_irq_bind_table[exti_line_num] = &res->irq_desc;
-        printf("%s[%d]:hc-sr04[%d] has bound to irq[%d]\n", __func__, __LINE__, res->irq_desc.ultra_id, res->irq_desc.irq_num);
+        pr_info("%s[%d]:hc-sr04[%d] has bound to irq[%d]\n", __func__, __LINE__, res->irq_desc.ultra_id, res->irq_desc.irq_num);
     } else {
         pr_err("%s[%d]:exti_line_num is out of range\n", __func__, __LINE__);
         res->irq_desc.has_bound = false;
@@ -133,6 +139,10 @@ void hc_sr04_irq(uint16_t GPIO_Pin)
     else
         pr_err("%s[%d]:Can not convert EXTI pin to ultra dev!\n", __func__, __LINE__);
 }
+void hc_sr04_gpio_init(uint16_t GPIO_Pin)
+{
+
+}
 
 int8_t hc_sr04_init(struct ultrasonic *ultra)
 {
@@ -143,11 +153,13 @@ int8_t hc_sr04_init(struct ultrasonic *ultra)
     }
     res = (struct hc_sr04_resource *)ultra->platform_data;
     //setup gpio
+	hc_sr04_gpio_init(res->echo_gpio_pin);
     HAL_GPIO_WritePin(res->trigger_gpio_port, res->trigger_gpio_pin, 0);
     HAL_GPIO_WritePin(res->echo_gpio_port, res->echo_gpio_pin, 0);
     //setup timer
     __HAL_TIM_CLEAR_IT(&htim3, TIM_IT_UPDATE);
     HAL_TIM_Base_Start_IT(&htim3);
+    /*use global timer*/
     //setup interrupt
     hc_sr04_bind_irq(ultra);
     //init state
@@ -155,17 +167,22 @@ int8_t hc_sr04_init(struct ultrasonic *ultra)
     return 0;
 }
 
-int16_t hc_sr04_get_distance(struct ultrasonic *ultra)
+int32_t hc_sr04_get_distance(struct ultrasonic *ultra)
 {
-    int16_t distance = -1; //uint:cm
+    int32_t distance = -1; //uint:mm
     uint32_t cur_tick = 0;
     float range, fly_time;
     ultrasonic_ranging_state_machine_t state = ULTRA_STATE_UNKNOWN;
     cur_tick = HAL_GetTick();
-    state = ultra->get_ranging_state(ultra);
+	state = ultra->get_ranging_state(ultra);
+	//just for delay
+	if (cur_tick < ultra->delay && (state == HC_SR04_STATE_IDLE)) {
+        //sleep
+        return distance;
+    }
     switch (state) {
     case HC_SR04_STATE_IDLE:
-        //printf("<%d>trigger!!\n", ultra->id);
+        //pr_info("<%d>trigger!!\n", ultra->id);
         hc_sr04_trigger_process(ultra->platform_data);
         ultra->set_ranging_state(ultra, HC_SR04_STATE_RAISE_ECHO_START);
         //todo: timeout check.
@@ -175,16 +192,19 @@ int16_t hc_sr04_get_distance(struct ultrasonic *ultra)
         //do nothing
         break;
     case HC_SR04_STATE_RAISE_CALC_DIS:
-        //printf("<%d>calc distance!!\n", ultra->id);
+        //pr_info("<%d>calc distance!!\n", ultra->id);
         //caculate real distance
         fly_time = (float)ultra->echo_pulse / 1000000.0f;
         range = fly_time * VELOCITY / 2;
-        printf("<%d>range:%f\n", ultra->id, range);
+		distance = (int32_t)(range * 1000.0f);
+        pr_debug("<%d>range:%f\n", ultra->id, range);
         //Start a new round of measurement
         ultra->set_ranging_state(ultra, HC_SR04_STATE_IDLE);
+		ultra->delay = HAL_GetTick() + HC_SR04_RANGING_PERIOD;
         break;
     default:;
     }
+	//just for timeout
     if (cur_tick > ultra->timeout && (state != HC_SR04_STATE_RAISE_CALC_DIS)) {
         pr_err("%s[%d]: HC-SR04%d range timeout!\n", __func__, __LINE__, ultra->id);
         ultra->set_ranging_state(ultra, HC_SR04_STATE_IDLE);
